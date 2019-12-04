@@ -1,7 +1,7 @@
 from enum import Enum
 import numpy as np
 import tensorflow as tf
-from PIL import Image, ImageFont
+from PIL import Image, ImageFont, ImageDraw
 
 class Reduction(Enum):
     NONE = 0
@@ -70,5 +70,5 @@ def make_citation(data_seq, output_size):
             draw.text((10, 50), "https://www.pixiv.net/artworks/", (32, 32, 32), font=font)
             draw.text((150, 75), id, (32, 32, 32), font=font)
             draw.text((10, 130), data["asset"]["name"], (32, 32, 32), font=font)
-            outs.append(np.asarray(cite))
+            outs.append(np.asarray(cite, np.uint8))
     return np.stack(outs, axis=0)
