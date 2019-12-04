@@ -1,6 +1,7 @@
 from enum import Enum
 import numpy as np
 import tensorflow as tf
+from PIL import Image, ImageFont
 
 class Reduction(Enum):
     NONE = 0
@@ -57,3 +58,17 @@ def make_grid(imgs, nrow, padding=0):
     if padding > 0:
         x = x[:(height * ncol - padding),:(width * nrow - padding),:] # 右端と下端のpaddingを削除
     return x
+
+def make_citation(data_seq, output_size):
+    outs = []
+    for data in data_seq:
+        ## Citattion
+        with Image.new("RGB", (output_size, output_size), color=(255, 255, 255)) as cite:
+            id = data["asset"]["name"].split("_")[0]
+            font = ImageFont.truetype("arial.ttf", 18)
+            draw = ImageDraw.Draw(cite)
+            draw.text((10, 50), "https://www.pixiv.net/artworks/", (32, 32, 32), font=font)
+            draw.text((150, 75), id, (32, 32, 32), font=font)
+            draw.text((10, 130), data["asset"]["name"], (32, 32, 32), font=font)
+            outs.append(np.asarray(cite))
+    return np.stack(outs, axis=0)
