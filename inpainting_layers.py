@@ -54,12 +54,12 @@ class RegionNormB(layers.Layer):
         mu, sigma = _region_moments(image, mask, self.eps)
         x_valid = tf.nn.batch_normalization(image, mean=mu, variance=sigma,
                     offset=self.beta_valid, scale=self.gamma_valid, variance_epsilon=self.eps)
-        # x_valid = x_valid * mask
+        x_valid = x_valid * mask
         # Instance normalization for masked area
         mu, sigma = _region_moments(image, 1.0- mask, self.eps)
         x_mask = tf.nn.batch_normalization(image, mean=mu, variance=sigma,
                     offset=self.beta_mask, scale=self.gamma_mask, variance_epsilon=self.eps)
-        # x_mask = x_mask * (1.0- mask)
+        x_mask = x_mask * (1.0- mask)
         return x_valid + x_mask
 
     def get_config(self):
