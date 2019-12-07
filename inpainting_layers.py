@@ -108,6 +108,8 @@ class RegionWiseConv(layers.Layer):
         super().__init__()
         if conv == "conv2d":
             conv_layer = layers.Conv2D
+        elif conv == "convsn2d":
+            conv_layer == ConvSN2D
 
         self.valid_conv = conv_layer(ch, kernel_size, strides=strides,
                                dilation_rate=dilation_rate, padding="same")
