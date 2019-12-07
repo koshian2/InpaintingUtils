@@ -4,8 +4,8 @@ from tensorflow.keras import backend as K
 import tensorflow.keras.layers as layers
 
 class InstanceNorm2D(layers.Layer):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.epsilon = 1e-3
  
     def build(self, inputs_shape):
@@ -32,8 +32,8 @@ def _region_moments(inputs, flag, eps):
     return mu, sigma
 
 class RegionNormB(layers.Layer):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.eps = 1e-3
  
     def build(self, inputs_shape):
@@ -66,8 +66,8 @@ class RegionNormB(layers.Layer):
         return super().get_config()
         
 class RegionNormL(layers.Layer):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.spatial_response_conv = layers.Conv2D(1, 3, padding="same", activation="sigmoid")
         self.gamma_conv = layers.Conv2D(1, 3, padding="same")
         self.beta_conv = layers.Conv2D(1, 3, padding="same")
@@ -104,8 +104,8 @@ class RegionNormL(layers.Layer):
         return super().get_config()
 
 class RegionWiseConv(layers.Layer):
-    def __init__(self, ch, strides=1, kernel_size=3, dilation_rate=1, conv="conv2d"):
-        super().__init__()
+    def __init__(self, ch, strides=1, kernel_size=3, dilation_rate=1, conv="conv2d", *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if conv == "conv2d":
             conv_layer = layers.Conv2D
         elif conv == "convsn2d":
