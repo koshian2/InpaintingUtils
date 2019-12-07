@@ -344,3 +344,49 @@ class ConvSN2D(layers.Conv2D):
         if self.activation is not None:
             return self.activation(outputs)
         return outputs
+
+    # tf.image.extract_patchesがbackpropで失敗するので自作
+def extract_patches(image, patch_size, stride):
+    assert patch_size > stride
+    assert len(image.shape) == 4
+    batch, height, width, ch = image.shape
+    assert height % stride == 0 and width % stride == 0
+
+    # 取り出したパッチを格納する配列
+    patches = []
+    # きりのいい場所まで埋めてから切り取る。きりのいい解像度
+    period = np.lcm(patch_size, stride)  # patch_sizeとstrideの最小公倍数が1周期
+    expand_width = width // period * period + np.sign(width % period) * period
+    expand_height = height // period * period + np.sign(height % period) * period
+    # 切り取るための個数
+    valid_width_count = width // stride
+    valid_height_count = height // stride
+
+    # とりあえず拡大する
+    pad = tf.constant([[0, 0], [0, 2*period], [0, 2*period], [0, 0]], dtype=tf.int32)
+    image_expand = tf.pad(image, pad, mode="CONSTANT")
+    # step per period
+    n_steps = period // stride
+    # パッチの個数
+    pch = expand_height // patch_size
+    pcw = expand_width // patch_size
+
+    for i in range(n_steps):        
+        for j in range(n_steps):
+            # 横→縦でスライド
+            offset_h = i * stride
+            offset_w = j * stride
+            image_select = image_expand[:, offset_h:offset_h+expand_height, offset_w:offset_w+expand_width,:]
+            x = tf.reshape(image_select, (-1, pch, patch_size, pcw, patch_size, ch))
+            x = tf.transpose(x, [0, 2, 4, 5, 1, 3])  # [b, p, p, c, h/p, w/p]
+            patches.append(x)
+    # タイルする
+    patches = tf.stack(patches, axis=-1)  # [b,p,p,c,h/p,w/p,steps**2]
+    patches = tf.reshape(patches, (-1, patch_size, patch_size, ch, pch, pcw, n_steps, n_steps))
+    patches = tf.transpose(patches, [0, 1, 2, 3, 4, 6, 5, 7])  # [b,p,p,c,pch,steps,pch,steps]
+    patches = tf.reshape(patches, (-1, patch_size, patch_size, ch, pch * n_steps, pcw * n_steps))
+    # 有効な分だけ切り取る
+    patches = patches[:,:,:,:,:valid_height_count,:valid_width_count]
+    # 最後の次元を埋める
+    patches = tf.reshape(patches, (-1, patch_size, patch_size, ch, valid_height_count * valid_width_count))
+    return patches
