@@ -9,7 +9,7 @@ class Reduction(Enum):
     MEAN = 2
     CONCAT = 3
 
-def distrtibuted(*reduction_flags):
+def distributed(*reduction_flags):
     def _decorator(fun):
         def per_replica_reduction(z, flag):
             if flag == Reduction.NONE:
