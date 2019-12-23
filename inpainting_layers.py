@@ -423,12 +423,12 @@ class RegionConv2D(layers.Layer):
     def call(self, inputs):
         img_valid, img_mask, mask = inputs
         # conv for valid
-        img_valid = self.mask_to_valid(img_mask) + self.valid_to_valid(img_valid)
-        img_valid = img_valid * mask
+        x_valid = self.mask_to_valid(img_mask) + self.valid_to_valid(img_valid)
+        x_valid = x_valid * mask
         # conv for mask
-        img_mask = self.valid_to_mask(img_valid) + self.mask_to_mask(img_mask)
-        img_mask = img_mask * (1.0- mask)
-        return img_valid, img_mask, mask
+        x_mask = self.valid_to_mask(img_valid) + self.mask_to_mask(img_mask)
+        x_mask = x_mask * (1.0- mask)
+        return x_valid, x_mask, mask
 
     def get_config(self):
         base_config = super().get_config()
