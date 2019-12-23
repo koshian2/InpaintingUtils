@@ -390,3 +390,67 @@ def extract_patches(image, patch_size, stride):
     # 最後の次元を埋める
     patches = tf.reshape(patches, (-1, patch_size, patch_size, ch, valid_height_count * valid_width_count))
     return patches
+
+## Regionwise Conv + RegionNormを統合してOctave Conv-likeにするためのConv2D
+class RegionConv2D(layers.Layer):
+    def __init__(self, ch, alpha=0.75, strides=1, kernel_size=3, dilation_rate=1, use_sn=True, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert alpha > 0 and alpha < 1
+        mask_ch = max(int(ch * alpha), 1)        
+        valid_ch = ch - mask_ch        
+        if not use_sn:
+            conv_layer = layers.Conv2D
+        else:
+            conv_layer = ConvSN2D
+
+        self.valid_to_valid = conv_layer(valid_ch, kernel_size, strides=strides,
+                               dilation_rate=dilation_rate, padding="same")
+        self.mask_to_valid = conv_layer(valid_ch, kernel_size, strides=strides,
+                               dilation_rate=dilation_rate, padding="same")
+        self.valid_to_mask = conv_layer(mask_ch, kernel_size, strides=strides,
+                               dilation_rate=dilation_rate, padding="same")
+        self.mask_to_mask = conv_layer(mask_ch, kernel_size, strides=strides,
+                               dilation_rate=dilation_rate, padding="same")
+        self.config = {
+            "alpha": alpha,
+            "ch": ch,
+            "strides": strides,
+            "kernel_size": kernel_size,
+            "dilation_rate": dilation_rate,
+            "use_sn": use_sn
+        }
+        
+    def call(self, inputs):
+        img_valid, img_mask, mask = inputs
+        # conv for valid
+        img_valid = self.mask_to_valid(img_mask) + self.valid_to_valid(img_valid)
+        img_valid = img_valid * mask
+        # conv for mask
+        img_mask = self.valid_to_mask(img_valid) + self.mask_to_mask(img_mask)
+        img_mask = img_mask * (1.0- mask)
+        return img_valid, img_mask, mask
+
+    def get_config(self):
+        base_config = super().get_config()
+        return {**base_config, **self.config}
+
+class PartialInstanceNorm2D(layers.Layer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eps = 1e-3
+ 
+    def build(self, inputs_shape):
+        image_shape, _ = inputs_shape
+        self.beta = tf.Variable(tf.zeros((1, 1, 1, image_shape[-1]), dtype=tf.float32), 
+                                aggregation=tf.VariableAggregation.MEAN, trainable=True, name="beta")
+        self.gamma = tf.Variable(tf.ones((1, 1, 1, image_shape[-1]), dtype=tf.float32),
+                                aggregation=tf.VariableAggregation.MEAN, trainable=True, name="gamma")
+        super().build(inputs_shape)
+        
+    def call(self, inputs):
+        image, mask = inputs
+        # Instance normalization for valid area (1 for valid, 0 for hole)
+        mu, sigma = _region_moments(image, mask, self.eps)
+        x = tf.nn.batch_normalization(image, mean=mu, variance=sigma,
+                offset=self.beta, scale=self.gamma, variance_epsilon=self.eps)
+        return x * mask
