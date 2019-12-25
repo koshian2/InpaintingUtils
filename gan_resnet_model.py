@@ -61,6 +61,31 @@ def image_to_image_generator():
     model = tf.keras.models.Model(inputs, x)
     return model
 
+def image_to_image_unet_generator():
+    inputs = layers.Input((64, 64, 3))
+    x = inputs
+    encoders = []
+    for ch in [64, 128, 256]:
+        x = layers.Conv2D(ch, 3, padding="same", strides=2)(x)
+        x = InstanceNorm2D()(x)
+        x = layers.ReLU()(x)
+        encoders.append(x)
+    for d in [1, 1, 2, 2]:
+        x = layers.Conv2D(512, 3, padding="same", dilation_rate=d)(x)
+        x = InstanceNorm2D()(x)
+        x = layers.ReLU()(x)  # (8, 8, 512)
+    x = layers.Concatenate()([x, encoders[-1]])
+    x = generator_residual_block(x, 256, -2)  # (16, 16, 256)
+    x = layers.Concatenate()([x, encoders[-2]])
+    x = generator_residual_block(x, 128, -2)  # (32, 32, 128)
+    x = layers.Concatenate()([x, encoders[-3]])
+    x = generator_residual_block(x, 64, -2)  # (64, 64, 64)
+    x = InstanceNorm2D()(x)
+    x = layers.ReLU()(x)
+    x = layers.Conv2D(3, 3, padding="same", activation="tanh")(x)
+    model = tf.keras.models.Model(inputs, x)
+    return model
+
 def discriminator():
     inputs = layers.Input((64, 64, 3))
     x = inputs
@@ -72,4 +97,3 @@ def discriminator():
     x = layers.Conv2D(1, 1)(x)
     model = tf.keras.models.Model(inputs, x)
     return model
-
