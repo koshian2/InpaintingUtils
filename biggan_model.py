@@ -47,16 +47,21 @@ def noise_to_image_generator():
 def image_to_image_generator():
     inputs = layers.Input((64, 64, 3))
     x = inputs
+    encoders = []
     for ch in [64, 128, 256]:
         x = ConvSN2D(ch, 3, padding="same", strides=2)(x)
         x = InstanceNorm2D()(x)
         x = layers.ReLU()(x)
+        encoders.append(x)
     for d in [1, 1, 2, 2]:
         x = ConvSN2D(512, 3, padding="same", dilation_rate=d)(x)
         x = InstanceNorm2D()(x)
         x = layers.ReLU()(x) # (8, 8, 512)
+    x = layers.Concatenate()([x, encoders[-1]])
     x = biggan_residual_block(x, 256, -2, True)  # (16, 16, 256)
+    x = layers.Concatenate()([x, encoders[-2]])
     x = biggan_residual_block(x, 128, -2, True)  # (32, 32, 128)
+    x = layers.Concatenate()([x, encoders[-3]])
     x = biggan_residual_block(x, 64, -2, True)  # (64, 64, 64)
     x = InstanceNorm2D()(x)
     x = layers.ReLU()(x)
@@ -74,5 +79,3 @@ def discriminator():
     x = ConvSN2D(1, 1)(x)
     model = tf.keras.models.Model(inputs, x)
     return model
-
-
