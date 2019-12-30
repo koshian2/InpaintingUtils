@@ -2,6 +2,7 @@ from enum import Enum
 import numpy as np
 import tensorflow as tf
 from PIL import Image, ImageFont, ImageDraw
+import os
 
 class Reduction(Enum):
     NONE = 0
@@ -65,7 +66,10 @@ def make_citation(data_seq, output_size):
         ## Citattion
         with Image.new("RGB", (output_size, output_size), color=(255, 255, 255)) as cite:
             id = data["asset"]["name"].split("_")[0]
-            font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
+            if os.name == "nt":
+                font = ImageFont.truetype("arial.ttf")
+            else:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
             draw = ImageDraw.Draw(cite)
             draw.text((10, 50), "https://www.pixiv.net/artworks/", (32, 32, 32), font=font)
             draw.text((150, 75), id, (32, 32, 32), font=font)
