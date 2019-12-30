@@ -2,19 +2,21 @@ import os
 import tensorflow as tf
 import numpy as np
 from scipy import linalg
+import pandas as pd
 
 def get_gpu_strategy():
     gpus = tf.config.experimental.list_physical_devices('GPU')
+    print(gpus)
     if gpus:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
         
     strategy = tf.distribute.MirroredStrategy(devices=["/gpu:0", "/gpu:1"],
                 cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
@@ -71,7 +73,7 @@ def fid(inception_a, inception_b):
             np.trace(sigma2) - 2 * tr_covmean)    
 
 
-def concatenate_batch_outputs(outputs, json, img_citation, contains_image, output_path):
+def concatenate_batch_outputs(outputs, json, img_citation, contains_image, output_path, scale_tanh):
     for i in range(len(outputs)):
         outputs[i] = np.concatenate(outputs[i], axis=0)[:2542]
 
@@ -101,13 +103,33 @@ def concatenate_batch_outputs(outputs, json, img_citation, contains_image, outpu
     result["comp_fid"] = fid(result["inception_gt"], result["inception_comp"])
 
     # 不要なら推論画像以外を消す（容量対策）
-    if not contains_image:
-        result["img_gt"], result["img_mosaic"], result["img_comp"] = None, None, None
-    else:
+    if contains_image:
         result_branch = {"img_gt": result["img_gt"],
                          "img_mosaic": result["img_mosaic"],
                          "img_comp": result["img_comp"],
-                         "img_citation": result["img_citation"]}                    
+                         "img_citation": img_citation}                    
+    result["img_gt"], result["img_mosaic"], result["img_comp"] = None, None, None
+
+    # 集計したテキストを作る
+    df = pd.DataFrame({
+        "mask_ratio": result["mask_ratio"],
+        "comp_psnr": result["comp_psnr"],
+        "comp_msssim": result["comp_msssim"],
+        "mosaic_psnr": result["mosaic_psnr"],
+        "mosaic_msssim": result["mosaic_msssim"],
+    })
+    cutoffs = [[0, 0.1], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.99]]
+    labels = [f"{c[0]*100:02} - {c[1]*100:02}%" for c in cutoffs]
+    c = pd.cut(df["mask_ratio"], [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.99], include_lowest=True, right=False, labels=labels)
+    sum_gb = df.groupby(c)
+    sum_df = sum_gb.mean()
+    sum_df["count"] = sum_gb.count()["mask_ratio"]
+    csv_txt = output_path + "\n\n"
+    csv_txt += sum_df.to_csv(sep="\t")
+    csv_txt += "\n"
+    csv_txt += f'comp_psnr = {np.mean(result["comp_psnr"])}\t mosaic_psnr = {np.mean(result["mosaic_psnr"])}\n'
+    csv_txt += f'comp_msssim = {np.mean(result["comp_msssim"])}\t mosaic_msssim = {np.mean(result["mosaic_msssim"])}\n'
+    csv_txt += f'comp_fid = {np.mean(result["comp_fid"])}\t mosaic_fid = {np.mean(result["mosaic_fid"])}\n'
 
     # 確認用
     print("comp_psnr =", np.mean(result["comp_psnr"]), "mosaic_psnr =", np.mean(result["mosaic_psnr"]))
@@ -120,4 +142,7 @@ def concatenate_batch_outputs(outputs, json, img_citation, contains_image, outpu
 
     np.savez_compressed(output_path, result)
     if contains_image:
-        np.savez_compressed(base_dir+"/images.npz", result_branch)
+        np.savez_compressed(base_dir + "/images.npz", result_branch)
+        
+    with open(output_path.replace("/", "/txt_").replace(".npz", ".txt"), "w") as fp:
+        fp.write(csv_txt)
