@@ -107,7 +107,8 @@ def concatenate_batch_outputs(outputs, json, img_citation, contains_image, outpu
         result_branch = {"img_gt": result["img_gt"],
                          "img_mosaic": result["img_mosaic"],
                          "img_comp": result["img_comp"],
-                         "img_citation": img_citation}                    
+                         "img_citation": img_citation,
+                         "mask_ratio": mask_ratio}                    
     result["img_gt"], result["img_mosaic"], result["img_comp"] = None, None, None
 
     # 集計したテキストを作る
@@ -140,9 +141,9 @@ def concatenate_batch_outputs(outputs, json, img_citation, contains_image, outpu
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
 
-    np.savez_compressed(output_path, result)
+    np.savez_compressed(output_path, **result)
     if contains_image:
-        np.savez_compressed(base_dir + "/images.npz", result_branch)
+        np.savez_compressed(base_dir + "/images.npz", **result_branch)
         
     with open(output_path.replace("/", "/txt_").replace(".npz", ".txt"), "w") as fp:
         fp.write(csv_txt)
