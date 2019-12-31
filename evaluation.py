@@ -106,10 +106,10 @@ def concatenate_batch_outputs(outputs, json, img_citation, contains_image, outpu
     if contains_image:
         result_branch = {"img_gt": result["img_gt"],
                          "img_mosaic": result["img_mosaic"],
-                         "img_comp": result["img_comp"],
+                         "img_mask": result["img_mask"],
                          "img_citation": img_citation,
                          "mask_ratio": mask_ratio}                    
-    result["img_gt"], result["img_mosaic"], result["img_comp"] = None, None, None
+    result["img_gt"], result["img_mosaic"], result["img_mask"] = None, None, None
 
     # 集計したテキストを作る
     df = pd.DataFrame({
