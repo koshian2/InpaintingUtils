@@ -69,13 +69,17 @@ def image_to_image_generator():
     model = tf.keras.models.Model(inputs, x)
     return model
 
-def discriminator():
+def discriminator(patchgan=True):
     inputs = layers.Input((64, 64, 3))
     x = biggan_residual_block(inputs, 128, 2, False) # (32, 32, 128)
     x = biggan_residual_block(x, 256, 2, False)  # (16, 16, 256)
     x = biggan_residual_block(x, 512, 2, False)  # (8, 8, 512)
     x = biggan_residual_block(x, 512, 1, False)
     x = layers.ReLU()(x)
-    x = ConvSN2D(1, 1)(x)
+    if patchgan:
+        x = ConvSN2D(1, 1)(x)
+    else:
+        x = ConvSN2D(1, 8, padding="valid")(x)
+        x = layers.Reshape((1, ))(x)
     model = tf.keras.models.Model(inputs, x)
     return model
