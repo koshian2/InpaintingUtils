@@ -30,20 +30,6 @@ def biggan_residual_block(inputs, ch, downsampling, use_normalize):
         r = layers.AveragePooling2D(downsampling)(r)
     return layers.Add()([x, r])
 
-def noise_to_image_generator():
-    inputs = layers.Input((128,))
-    x = layers.Reshape((4, 4, 8))(inputs)  # 本当はSN＋Dense
-    x = ConvSN2D(1024, 1)(x)  # (4, 4, 1024)
-    x = biggan_residual_block(x, 512, -2, True) # (8, 8, 512)
-    x = biggan_residual_block(x, 256, -2, True)  # (16, 16, 256)
-    x = biggan_residual_block(x, 128, -2, True)  # (32, 32, 256)
-    x = biggan_residual_block(x, 64, -2, True)  # (64, 64, 64)
-    x = InstanceNorm2D()(x)
-    x = layers.ReLU()(x)
-    x = ConvSN2D(3, 3, padding="same", activation="tanh")(x)
-    model = tf.keras.models.Model(inputs, x)
-    return model
-
 def image_to_image_generator():
     inputs = layers.Input((64, 64, 3))
     x = inputs
@@ -69,17 +55,13 @@ def image_to_image_generator():
     model = tf.keras.models.Model(inputs, x)
     return model
 
-def discriminator(patchgan=True):
+def discriminator():
     inputs = layers.Input((64, 64, 3))
     x = biggan_residual_block(inputs, 128, 2, False) # (32, 32, 128)
     x = biggan_residual_block(x, 256, 2, False)  # (16, 16, 256)
     x = biggan_residual_block(x, 512, 2, False)  # (8, 8, 512)
     x = biggan_residual_block(x, 512, 1, False)
     x = layers.ReLU()(x)
-    if patchgan:
-        x = ConvSN2D(1, 1)(x)
-    else:
-        x = ConvSN2D(1, 8, padding="valid")(x)
-        x = layers.Reshape((1, ))(x)
+    x = ConvSN2D(1, 1)(x)
     model = tf.keras.models.Model(inputs, x)
     return model
