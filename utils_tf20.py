@@ -27,7 +27,7 @@ def distributed(*reduction_flags):
 
         @tf.function
         def _decorated_fun(*args, **kwargs):
-            fun_result = strategy.run(fun, args=args, kwargs=kwargs)
+            fun_result = strategy.experimental_run_v2(fun, args=args, kwargs=kwargs)
             if len(reduction_flags) == 0:
                 assert fun_result is None
                 return
